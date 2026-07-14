@@ -1,32 +1,470 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Deteksi Baju AI - Premium</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>AI Scanner – Men's Fashion Intelligence</title>
+  <meta name="description" content="AI Scanner menggunakan kecerdasan buatan untuk mengenali, mencocokkan, dan merekomendasikan fashion pria terbaik dari hasil scan kamera Anda." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- TensorFlow.js + COCO-SSD for object detection -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 </head>
 <body>
-<div class="blob blob-1"></div><div class="blob blob-2"></div>
-<div class="container">
-  <h1>🤖 AI Visual Scanner</h1>
-  <p>Deteksi pintar secara real-time untuk Kemeja Kerah dan Kemeja Koko.</p>
-  <button class="btn-start" id="startBtn" onclick="init()">🚀 Mulai Deteksi Kamera</button>
-  <div class="app-layout" id="appLayout">
-    <div class="video-section">
-      <div id="webcam-container"></div>
-      <div class="action-buttons" id="actionButtons">
-        <button class="btn-photo" id="btnPhoto" onclick="takeSnapshot()">📸 Jepret Foto</button>
-        <button class="btn-photo" id="btnFlip" onclick="flipCamera()" style="display:none; padding: 8px 15px;">🔄 Balik</button>
-        <label class="btn-photo btn-upload">📁 Unggah File<input type="file" id="fileUpload" accept="image/*" onchange="handleUpload(event)"></label>
+
+  <!-- ===== APP SHELL ===== -->
+  <div class="app-shell" id="appShell">
+
+    <!-- TOP HEADER -->
+    <header class="top-header" id="topHeader">
+      <button class="header-btn" id="menuBtn" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <h1 class="logo-text">AI SCANNER</h1>
+      <button class="avatar-btn" id="avatarBtn" aria-label="Profile">
+        <div class="avatar-ring">
+          <div class="avatar-circle">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+          </div>
+        </div>
+      </button>
+    </header>
+
+    <!-- PAGE CONTAINER -->
+    <main class="page-container" id="pageContainer">
+
+      <!-- ===== PAGE: SCAN ===== -->
+      <section class="page" id="pageScan" data-page="scan">
+        <div class="scan-wrapper">
+
+          <!-- LIVE CAMERA VIEWFINDER -->
+          <div class="scan-viewfinder" id="scanViewfinder">
+
+            <!-- Live Video Feed -->
+            <video id="cameraFeed" class="camera-feed" autoplay playsinline muted></video>
+            <!-- Capture canvas (hidden) -->
+            <canvas id="captureCanvas" style="display:none"></canvas>
+            <!-- Detection overlay canvas (draws bounding boxes) -->
+            <canvas id="detectionCanvas" class="detection-canvas"></canvas>
+
+            <!-- Detection Info Panel (shows when clothing detected) -->
+            <div class="detection-panel" id="detectionPanel">
+              <div class="detection-panel-header">
+                <div class="detection-pulse"></div>
+                <span class="detection-status" id="detectionStatus">Mendeteksi...</span>
+              </div>
+              <div class="detection-info" id="detectionInfo">
+                <div class="detection-row">
+                  <span class="detection-label">Jenis</span>
+                  <span class="detection-value" id="detectedType">—</span>
+                </div>
+                <div class="detection-row">
+                  <span class="detection-label">Warna</span>
+                  <span class="detection-value" id="detectedColor">—</span>
+                  <span class="color-swatch" id="colorSwatch"></span>
+                </div>
+                <div class="detection-row">
+                  <span class="detection-label">Confidence</span>
+                  <span class="detection-value" id="detectedConfidence">—</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Model Loading Indicator -->
+            <div class="ai-model-loading" id="aiModelLoading">
+              <div class="model-spinner"></div>
+              <span>Loading AI Model...</span>
+            </div>
+
+            <!-- Scan Frame Overlay -->
+            <div class="scan-frame">
+              <div class="scan-corner tl"></div>
+              <div class="scan-corner tr"></div>
+              <div class="scan-corner bl"></div>
+              <div class="scan-corner br"></div>
+              <div class="scan-line" id="scanLine"></div>
+            </div>
+
+            <!-- Camera Permission / Error State -->
+            <div class="camera-state" id="cameraState">
+              <div class="camera-state-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(0,191,165,0.8)" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+              <p class="camera-state-title" id="cameraStateTitle">Memulai Kamera...</p>
+              <p class="camera-state-desc" id="cameraStateDesc">Mohon izinkan akses kamera di browser kamu</p>
+              <button class="camera-retry-btn" id="cameraRetryBtn">Coba Lagi</button>
+            </div>
+
+            <!-- AI Badge -->
+            <div class="ai-badge-scan" id="aiBadgeScan" style="display:none">
+              <div class="ai-dot"></div>
+              <span id="aiBadgeText">AI Ready</span>
+            </div>
+
+            <!-- Volume indicator -->
+            <div class="volume-indicator" id="volumeIndicator">
+              <div class="vol-bar"></div>
+              <div class="vol-bar"></div>
+              <div class="vol-bar"></div>
+              <div class="vol-bar"></div>
+              <div class="vol-bar"></div>
+            </div>
+
+            <!-- Switch Camera button (top-left when camera is active) -->
+            <button class="switch-camera-btn" id="switchCameraBtn" style="display:none" aria-label="Switch Camera">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+            </button>
+
+            <!-- Guide text (shown when camera is active) -->
+            <div class="scan-guide" id="scanGuide" style="display:none">
+              <p>Arahkan kamera ke pakaian</p>
+            </div>
+
+          </div><!-- /scan-viewfinder -->
+
+          <div class="scan-actions">
+            <button class="scan-tip-btn" id="uploadBtn" aria-label="Upload">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </button>
+            <input type="file" id="fileInput" accept="image/*" style="display:none" />
+            <button class="scan-main-btn" id="mainScanBtn" aria-label="Scan">
+              <div class="scan-btn-inner">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+            </button>
+            <button class="scan-tip-btn" id="scanFlashBtn" aria-label="Flash">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10 13,2"/></svg>
+            </button>
+          </div>
+
+          <div class="scan-hint">
+            <p>Scan langsung atau <span class="upload-link" id="uploadLink">upload foto</span> pakaian</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ===== UPLOAD PREVIEW MODAL ===== -->
+      <div class="upload-preview-overlay" id="uploadPreviewOverlay">
+        <div class="upload-preview-card">
+          <div class="upload-preview-header">
+            <h3>Preview Upload</h3>
+            <button class="upload-close-btn" id="uploadCloseBtn" aria-label="Tutup">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="upload-preview-img-wrap">
+            <img id="uploadPreviewImg" class="upload-preview-img" src="" alt="Preview" />
+            <canvas id="uploadDetectionCanvas" class="upload-detection-canvas"></canvas>
+          </div>
+          <div class="upload-result" id="uploadResult">
+            <p class="upload-result-hint">Klik "Analisis" untuk mendeteksi pakaian</p>
+          </div>
+          <div class="upload-actions">
+            <button class="btn-upload-reselect" id="uploadReselectBtn">Pilih Ulang</button>
+            <button class="btn-upload-analyze" id="uploadAnalyzeBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Analisis
+            </button>
+          </div>
+        </div>
       </div>
-      <div id="photo-gallery" class="photo-gallery"></div>
+
+      <!-- ===== PAGE: GALLERY ===== -->
+      <section class="page hidden" id="pageGallery" data-page="gallery">
+        <div class="page-content">
+          <div class="gallery-tabs">
+            <button class="gallery-tab active" id="tabKoko" data-tab="koko">Kemeja Koko</button>
+            <button class="gallery-tab" id="tabKrah" data-tab="krah">Kemeja Krah</button>
+          </div>
+          <h2 class="section-title">Curated for You</h2>
+          <p class="section-subtitle">Premium collections identified by your recent scans.</p>
+          <div class="gallery-grid" id="galleryGrid">
+            <!-- Filled by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== PAGE: HISTORY ===== -->
+      <section class="page hidden" id="pageHistory" data-page="history">
+        <div class="page-content">
+          <h2 class="page-heading">Scan History</h2>
+          <p class="page-subheading">Your recent intelligent discoveries in men's fashion.</p>
+
+          <div class="search-bar-wrap">
+            <div class="search-bar">
+              <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="searchInput" class="search-input" placeholder="Search history..." />
+            </div>
+            <button class="filter-btn" id="filterBtn" aria-label="Filter">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+            </button>
+          </div>
+
+          <div class="history-list" id="historyList">
+            <!-- Filled by JS -->
+          </div>
+
+          <div class="recommended-section">
+            <h3 class="rec-title">RECOMMENDED FOR YOU</h3>
+            <div class="rec-grid" id="recGrid">
+              <!-- Filled by JS -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== PAGE: PROFILE ===== -->
+      <section class="page hidden" id="pageProfile" data-page="profile">
+        <div class="page-content profile-page">
+          <div class="profile-header-card">
+            <div class="profile-avatar-lg">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="white"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+            </div>
+            <h2 class="profile-name">Ahmad Rizky</h2>
+            <p class="profile-email">ahmad.rizky@email.com</p>
+            <div class="profile-stats">
+              <div class="stat-item">
+                <span class="stat-num">24</span>
+                <span class="stat-lbl">Scans</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <span class="stat-num">8</span>
+                <span class="stat-lbl">Saved</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <span class="stat-num">3</span>
+                <span class="stat-lbl">Orders</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="profile-menu">
+            <div class="profile-menu-group">
+              <button class="profile-menu-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span>Edit Profile</span>
+                <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+              </button>
+              <button class="profile-menu-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+                <span>Saved Items</span>
+                <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+              </button>
+              <button class="profile-menu-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                <span>Order History</span>
+                <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+              </button>
+            </div>
+            <div class="profile-menu-group">
+              <button class="profile-menu-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                <span>AI Preferences</span>
+                <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+              </button>
+              <button class="profile-menu-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span>Settings</span>
+                <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+              </button>
+              <button class="profile-menu-item logout-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Logout</span>
+                <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="ai-plan-card">
+            <div class="plan-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            </div>
+            <div class="plan-info">
+              <p class="plan-label">AI Premium Plan</p>
+              <p class="plan-desc">Unlimited scans & AI insights</p>
+            </div>
+            <button class="plan-btn">Upgrade</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="bottom-nav" id="bottomNav">
+      <button class="nav-item" id="navScan" data-target="scan">
+        <div class="nav-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <span class="nav-label">Scan</span>
+      </button>
+      <button class="nav-item" id="navGallery" data-target="gallery">
+        <div class="nav-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+        </div>
+        <span class="nav-label">Gallery</span>
+      </button>
+      <button class="nav-item active" id="navHistory" data-target="history">
+        <div class="nav-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+        </div>
+        <span class="nav-label">History</span>
+      </button>
+      <button class="nav-item" id="navProfile" data-target="profile">
+        <div class="nav-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <span class="nav-label">Profile</span>
+      </button>
+    </nav>
+
+  </div><!-- /app-shell -->
+
+  <!-- ===== PRODUCT DETAIL MODAL ===== -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="product-modal" id="productModal">
+      <div class="modal-hero" id="modalHero">
+        <button class="modal-back-btn" id="modalBackBtn" aria-label="Kembali">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg>
+        </button>
+        <button class="modal-avatar-btn" aria-label="Profile">
+          <div class="avatar-ring">
+            <div class="avatar-circle">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+            </div>
+          </div>
+        </button>
+        <img class="modal-hero-img" id="modalHeroImg" src="" alt="Product" />
+        <div class="modal-labels" id="modalLabels">
+          <div class="scan-label" style="top:22%;left:8%">
+            <div class="label-dot"></div>
+            <span class="label-text">Stiff Collar Detailing</span>
+          </div>
+          <div class="scan-label" style="top:52%;left:5%">
+            <div class="label-dot"></div>
+            <span class="label-text">Breathable Fabric Matrix</span>
+          </div>
+        </div>
+        <div class="match-badge-hero">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10 13,2"/></svg>
+          <span id="modalMatchPct">98% Match</span>
+        </div>
+      </div>
+
+      <div class="modal-body" id="modalBody">
+        <!-- Header AI SCANNER -->
+        <div class="modal-app-header">
+          <span class="modal-logo">AI SCANNER</span>
+        </div>
+        <div class="modal-product-header">
+          <div>
+            <p class="modal-collection" id="modalCollection">PREMIUM COLLECTION</p>
+            <h2 class="modal-product-name" id="modalProductName">Al-Farouq Modern Koko</h2>
+          </div>
+          <div class="modal-price-wrap">
+            <p class="modal-price" id="modalPrice">$89.00</p>
+            <p class="modal-price-old" id="modalPriceOld">$120.99</p>
+          </div>
+        </div>
+
+        <!-- AI INSIGHTS -->
+        <div class="ai-insights-section">
+          <div class="ai-insights-header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            <span>AI INSIGHTS</span>
+          </div>
+
+          <div class="insight-card" id="insightMaterial">
+            <div class="insight-icon material-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+            </div>
+            <div class="insight-content">
+              <p class="insight-label">MATERIAL</p>
+              <p class="insight-text">Scanning detected <strong class="highlight-teal">Premium Egyptian Cotton</strong> blend. High durability and sweat-wicking properties.</p>
+            </div>
+          </div>
+
+          <div class="insight-card" id="insightFit">
+            <div class="insight-icon fit-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            </div>
+            <div class="insight-content">
+              <p class="insight-label">FIT ANALYSIS</p>
+              <p class="insight-text">Slim-fit pattern recommended for your <strong class="highlight-teal">Athletic Profile</strong>. 95% accuracy in drape simulation.</p>
+            </div>
+          </div>
+
+          <div class="insight-card" id="insightUsage">
+            <div class="insight-icon usage-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div class="insight-content">
+              <p class="insight-label">USAGE</p>
+              <p class="insight-text">Ideal for <strong class="highlight-teal">Formal Religious Ceremonies</strong> and high-end evening events.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- COLOR VARIANTS -->
+        <div class="variants-section">
+          <p class="variants-label">SELECT VARIANT</p>
+          <div class="color-variants" id="colorVariants">
+            <button class="color-dot active" style="background:#1a1a2e" data-color="#1a1a2e" aria-label="Black"></button>
+            <button class="color-dot" style="background:#2c3e6b" data-color="#2c3e6b" aria-label="Navy"></button>
+            <button class="color-dot" style="background:#4a5240" data-color="#4a5240" aria-label="Olive"></button>
+            <button class="color-dot" style="background:#f0f0f0; border:2px solid #ccc" data-color="#f0f0f0" aria-label="White"></button>
+          </div>
+        </div>
+
+        <!-- DESCRIPTION -->
+        <div class="description-section">
+          <h3>Description</h3>
+          <p id="modalDescription">The Al-Farouq Modern Koko represents the pinnacle of modern modesty. Engineered with laser-cut detailing and a reinforced collar that maintains its shape through all-day wear. The fabric undergoes a nano-silver treatment for odor resistance, making it perfect for long communal prayers or social gatherings.</p>
+        </div>
+
+        <!-- BOTTOM SPACER -->
+        <div style="height:100px"></div>
+      </div>
+
+      <!-- MODAL FOOTER ACTIONS -->
+      <div class="modal-footer">
+        <button class="btn-cart" id="btnCart">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          Add to Cart
+        </button>
+        <button class="btn-buy" id="btnBuy">Buy Now</button>
+      </div>
     </div>
-    <div class="results-section" id="label-container"></div>
   </div>
-</div>
-<script src="script.js"></script>
+
+  <!-- ===== SCAN PROGRESS OVERLAY ===== -->
+  <div class="scan-progress-overlay" id="scanProgressOverlay">
+    <div class="scan-progress-card">
+      <div class="scan-progress-ring">
+        <svg viewBox="0 0 80 80" width="80" height="80">
+          <circle cx="40" cy="40" r="34" stroke="#e0f2f1" stroke-width="6" fill="none"/>
+          <circle class="progress-circle" cx="40" cy="40" r="34" stroke="var(--teal)" stroke-width="6" fill="none" stroke-linecap="round" stroke-dasharray="213" stroke-dashoffset="213"/>
+        </svg>
+        <span class="scan-progress-pct" id="scanProgressPct">0%</span>
+      </div>
+      <p class="scan-progress-text">Analyzing fashion pattern...</p>
+      <div class="scan-progress-steps" id="scanProgressSteps">
+        <div class="progress-step active">Detecting fabric texture</div>
+        <div class="progress-step">Matching collar style</div>
+        <div class="progress-step">Finding best matches</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
