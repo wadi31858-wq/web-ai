@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deteksi Baju AI - Premium</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="blob blob-1"></div><div class="blob blob-2"></div>
+<div class="container">
+  <h1>🤖 AI Visual Scanner</h1>
+  <p>Deteksi pintar secara real-time untuk Kemeja Kerah dan Kemeja Koko.</p>
+  <button class="btn-start" id="startBtn" onclick="init()">🚀 Mulai Deteksi Kamera</button>
+  <div class="app-layout" id="appLayout">
+    <div class="video-section">
+      <div id="webcam-container"></div>
+      <div class="action-buttons" id="actionButtons">
+        <button class="btn-photo" id="btnPhoto" onclick="takeSnapshot()">📸 Jepret Foto</button>
+        <button class="btn-photo" id="btnFlip" onclick="flipCamera()" style="display:none; padding: 8px 15px;">🔄 Balik</button>
+        <label class="btn-photo btn-upload">📁 Unggah File<input type="file" id="fileUpload" accept="image/*" onchange="handleUpload(event)"></label>
+      </div>
+      <div id="photo-gallery" class="photo-gallery"></div>
+    </div>
+    <div class="results-section" id="label-container"></div>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
